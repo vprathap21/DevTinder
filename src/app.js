@@ -1,19 +1,50 @@
 const express = require("express");
 const connectDb = require("./config/database");
 const User = require("./models/user");
-const zod = require("zod");
+const bcrypt = require("bcrypt");
+const validateSiginUpData = require("./utils/validations");
 const app = express();
-const Schema = zod.string();
 
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
-  const user = new User(req.body);
   try {
+    //validation of data
+    validateSiginUpData(req);
+    // encrypt the password
+    const { firstName, lastName, emailId, password } = req.body;
+    const passwordHash = await bcrypt.hash(password, 10);
+    // creating a new instence of the User model
+    console.log(passwordHash);
+    const user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: passwordHash,
+    });
+
     await user.save();
     res.send("user data is saved in db succeessfully ");
   } catch (err) {
     res.status(400).send("Error saving the user: " + err.message);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+    const user = await User.findOne({ emailId: emailId });
+    if (!user) {
+      throw new Error("invalid credential");
+    }
+    const ispasswordValid = await bcrypt.compare(password, user.password);
+    if (ispasswordValid) {
+      res.send("Login successfully");
+    } else {
+      throw new Error("invalid credential");
+    }
+  } catch (err) {
+    res.status(400).send(err.message);
   }
 });
 
