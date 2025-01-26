@@ -1,7 +1,10 @@
 const express = require("express");
 const connectDb = require("./config/database");
 const User = require("./models/user");
+const zod = require("zod");
 const app = express();
+const Schema = zod.string();
+
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
@@ -11,6 +14,51 @@ app.post("/signup", async (req, res) => {
     res.send("user data is saved in db succeessfully ");
   } catch (err) {
     res.status(400).send("Error saving the user: " + err.message);
+  }
+});
+
+app.get("/user", async (req, res) => {
+  const userEmail = req.body.emailId;
+  const reponce = Schema.safeParse(userEmail);
+  console.log(reponce);
+  try {
+    const user = await User.find({ emailId: userEmail });
+    if (user.length === 0) {
+      res.status(400).send("User not found");
+    } else {
+      res.send(user);
+    }
+  } catch (err) {
+    res.status(400).send("something went wrong");
+  }
+});
+
+app.get("/feed", async (req, res) => {
+  const users = await User.find({});
+  res.send(users);
+});
+
+app.delete("/user", async (req, res) => {
+  const userId = req.body.userId;
+  try {
+    const user = await User.findOneAndDelete(userId);
+    res.send("user deleted successfuly");
+  } catch (err) {
+    res.status(400).send(err.message);
+  }
+});
+
+app.patch("/user", async (req, res) => {
+  const data = req.body;
+  const userId = req.body.userId;
+  try {
+    await User.findOneAndUpdate({ _id: userId }, data, {
+      returnDocument: "after",
+      runValidators: true,
+    });
+    res.send("user updated successfully");
+  } catch (err) {
+    res.status(400).send("something went wrong");
   }
 });
 
