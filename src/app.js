@@ -3,9 +3,13 @@ const connectDb = require("./config/database");
 const User = require("./models/user");
 const bcrypt = require("bcrypt");
 const validateSiginUpData = require("./utils/validations");
+const cookieparser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { userAuth } = require("./middlewares/auth");
 const app = express();
 
 app.use(express.json());
+app.use(cookieparser());
 
 app.post("/signup", async (req, res) => {
   try {
@@ -15,7 +19,7 @@ app.post("/signup", async (req, res) => {
     const { firstName, lastName, emailId, password } = req.body;
     const passwordHash = await bcrypt.hash(password, 10);
     // creating a new instence of the User model
-    console.log(passwordHash);
+
     const user = new User({
       firstName,
       lastName,
@@ -37,8 +41,12 @@ app.post("/login", async (req, res) => {
     if (!user) {
       throw new Error("invalid credential");
     }
-    const ispasswordValid = await bcrypt.compare(password, user.password);
+    const ispasswordValid = await user.validatePassword(password);
     if (ispasswordValid) {
+      const token = await user.getJWT();
+      res.cookie("token", token, {
+        expires: new Date(Date.now() + 8 * 3600000),
+      });
       res.send("Login successfully");
     } else {
       throw new Error("invalid credential");
@@ -100,6 +108,20 @@ app.patch("/user/:userId", async (req, res) => {
     res.send("user updated successfully");
   } catch (err) {
     res.status(400).send("something went wrong:" + err.message);
+  }
+});
+
+app.get("/profile", userAuth, async (req, res) => {
+  try {
+    // console.log(req);
+    const user = req.user;
+    if (!user) {
+      throw new Error("User does not exsist");
+    }
+
+    res.send(user);
+  } catch (err) {
+    res.status(400).send("invalid token: " + err.message);
   }
 });
 
